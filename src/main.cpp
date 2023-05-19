@@ -1,6 +1,15 @@
-#include <Arduino.h>
-#include "toneAC.h"
+/*******************************************************************************************
+ *                                                                                         *
+ *    Vario-Black                                                                          *
+ *                                                                                         *
+ *    Copyright (c) 2022 Onur AKIN <https://github.com/onurae>                             *
+ *    Licensed under the MIT License.                                                      *
+ *                                                                                         *
+ ******************************************************************************************/
+
 #include "ST7567_FB.h"
+#include "toneAC.h"
+#include "baro.hpp"
 
 // Buttons
 #define BUTTON_OK PIN_A0
@@ -11,24 +20,16 @@
 // LCD
 ST7567_FB lcd(7, 8, 6);
 
+// Sensor
+Baro baro;
+
 // Main loop
 unsigned long start;
 unsigned long end;
 int8_t elapsed;
 
-void Delay(unsigned long interval)
-{
-    unsigned long previous = millis();
-    unsigned long current = previous;
-    while (current - previous < interval)
-    {
-        current = millis();
-    }
-}
-
 void setup()
 {
-    Delay(500);
     Serial.begin(115200);
     Serial.println("vario-black");
     toneAC(1000, 10, 200, true);
@@ -44,6 +45,12 @@ void setup()
     lcd.setContrast(0);
     lcd.cls();
     lcd.display();
+
+    if (!baro.Init()) // Pressure refresh rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above.
+    {
+        Serial.println(F("Error"));
+        while(true);
+    }
 
     // Main loop
     start = millis();
@@ -65,13 +72,19 @@ void loop()
     // Period
     end = millis();
     elapsed = end - start;
-    Serial.println(elapsed);
+    //Serial.println(elapsed);
     int8_t period = 100;
     if (elapsed < period)
     {
         Delay(period - elapsed);
     }
     start = millis();
+
+    // Sensor
+    baro.Update(period / 1000.0f);
+    Serial.print(baro.GetAlt());
+    Serial.print("   ");
+    Serial.println(baro.GetVario());
 
     // Power off
     if (digitalRead(BUTTON_BACK) == 0)
