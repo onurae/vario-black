@@ -11,6 +11,8 @@
 
 bool Baro::Init()
 {
+    Wire.begin();
+    Wire.setWireTimeout(25000, false);
     Wire.beginTransmission(ADDRESS_MS5611);
     Wire.write(0x1E); // Reset
     if (Wire.endTransmission())
@@ -37,18 +39,15 @@ bool Baro::Init()
 
     if (SendConvCmdTemp() == false) // Send temperature command
     {
-        // printf("MS5611 temperature command error.\n");
         return false;
     }
     Delay(10);
     if (ReadTemperature() == false) // Read digital temperature value
     {
-        // printf("MS5611 temperature read error.\n");
         return false;
     }
     if (SendConvCmdPres() == false) // Send pressure command
     {
-        // printf("MS5611 pressure command error.\n");
         return false;
     }
     lastConv = millis();
@@ -77,6 +76,13 @@ void Baro::Update(float dt)
             Calculate();
             ApplyFilter(dt * 2.0f);
         }
+        failure = false;
+    }
+    else
+    {
+        xk = 0;
+        vk = 0;
+        failure = true;
     }
 }
 
@@ -106,34 +112,42 @@ bool Baro::ReadPressure()
 {
     Wire.beginTransmission(ADDRESS_MS5611);
     Wire.write(0x00);
-    Wire.endTransmission();
+    if (Wire.endTransmission())
+    {
+        return false;
+    }
     Wire.beginTransmission(ADDRESS_MS5611);
     if (Wire.requestFrom(ADDRESS_MS5611, 3) == 3)
     {
         dpt[0] = ((uint32_t)Wire.read() << 16) | ((uint32_t)Wire.read() << 8) | (uint32_t)Wire.read();
+        if (dpt[0] == 0) // if loop is fast, it returns 0.
+        {
+            return false;
+        }
+        return true;
     }
-    if (dpt[0] == 0) // if loop is fast, it returns 0.
-    {
-        return false;
-    }
-    return true;
+    return false;
 }
 
 bool Baro::ReadTemperature()
 {
     Wire.beginTransmission(ADDRESS_MS5611);
     Wire.write(0x00);
-    Wire.endTransmission();
+    if (Wire.endTransmission())
+    {
+        return false;
+    }
     Wire.beginTransmission(ADDRESS_MS5611);
     if (Wire.requestFrom(ADDRESS_MS5611, 3) == 3)
     {
         dpt[1] = ((uint32_t)Wire.read() << 16) | ((uint32_t)Wire.read() << 8) | (uint32_t)Wire.read();
+        if (dpt[1] == 0) // if loop is fast, it returns 0.
+        {
+            return false;
+        }
+        return true;
     }
-    if (dpt[1] == 0) // if loop is fast, it returns 0.
-    {
-        return false;
-    }
-    return true;
+    return false;
 }
 
 bool Baro::ReadPresTemp()

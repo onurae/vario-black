@@ -49,11 +49,13 @@ void setup()
     lcd.cls();
     lcd.display();
 
-    if (!baro.Init()) // Pressure refresh rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above.
+    if (baro.Init() == false) // Pressure refresh rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above.
     {
-        Serial.println(F("Error"));
+        Serial.println(F("Sensor error"));
         while (true)
-            ;
+        {
+            Delay(1000);
+        }
     }
 
     // Main loop
@@ -90,13 +92,21 @@ void loop()
     {
         counter = 0;
         baro.Update(dt);
-        if (baro.GetState() == true)
+        if (baro.CheckFailure() == false)
         {
-            Serial.print(baro.GetAlt());
-            Serial.print("   ");
-            Serial.print(baro.GetX());
-            Serial.print("   ");
-            Serial.println(baro.GetV());
+            // Refresh the screen only when the state is true.
+            if (baro.GetState() == true)
+            {
+                Serial.print(baro.GetAlt());
+                Serial.print(F("   "));
+                Serial.print(baro.GetX());
+                Serial.print(F("   "));
+                Serial.println(baro.GetV());
+            }
+        }
+        else
+        {
+            Serial.println(F("Sensor failure"));
         }
     }
 

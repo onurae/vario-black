@@ -46,6 +46,7 @@ private:
     float tsl = 25.0;      // Temperature sea level [°C]
     float alt = 0;         // Altitude sea level [m]
     bool state = false;    // false: Pres read, temp cmd. true: Pres cmd, temp read.
+    bool failure = false;  // Failure flag
 
     // Filter
     void ApplyFilter(float dt);
@@ -60,6 +61,7 @@ public:
     bool Init();
     void Update(float dt);
     bool GetState() { return state; }
+    bool CheckFailure() { return failure; }
     float GetAlt() { return alt; }
     float GetX() { return xk; }
     float GetV() { return vk; }
