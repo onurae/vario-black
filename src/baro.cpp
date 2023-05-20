@@ -53,16 +53,31 @@ bool Baro::Init()
     }
     lastConv = millis();
     Delay(10);
-    CalculatePresTempAlt(); // Read digital pressure value, calculate pressure, temperature and altitude.
-    altfp = alt;
-    altf = alt;
+    if (ReadPresTemp() == false) // Read digital pressure value, send temperature command.
+    {
+        return false;
+    }
+    Calculate(); // Calculate pressure, temperature and altitude.
+
+    // Initial conditions for filter
+    xk1 = alt;
+    vk1 = 0;
+    xk = xk1;
+    vk = vk1;
+
     return true;
 }
 
 void Baro::Update(float dt)
 {
-    CalculatePresTempAlt();
-    CalculateFilteredAltVs(dt);
+    if (ReadPresTemp() == true)
+    {
+        if (state == true)
+        {
+            Calculate();
+            ApplyFilter(dt * 2.0f);
+        }
+    }
 }
 
 bool Baro::SendConvCmdPres()
@@ -154,55 +169,47 @@ bool Baro::ReadPresTemp()
     return false;
 }
 
-void Baro::CalculatePresTempAlt()
+void Baro::Calculate()
 {
-    if (ReadPresTemp() == true)
-    {
-        tDiff = (int64_t)dpt[1] - tRef;
-        tAct = 2000 + ((tDiff * cal[5]) >> 23);
-        tOff = tOff1 + ((tDiff * cal[3]) >> 7);
-        tSens = tSens1 + ((tDiff * cal[2]) >> 8);
+    tDiff = (int64_t)dpt[1] - tRef;
+    tAct = 2000 + ((tDiff * cal[5]) >> 23);
+    tOff = tOff1 + ((tDiff * cal[3]) >> 7);
+    tSens = tSens1 + ((tDiff * cal[2]) >> 8);
 
-        if (tAct < 2000) // Temperature < 20°C
+    if (tAct < 2000) // Temperature < 20°C
+    {
+        tAct2 = (tDiff * tDiff) >> 31;
+        int64_t x = tAct - 2000;
+        x = 5 * x * x;
+        tOff2 = x >> 1;
+        tSens2 = x >> 2;
+        if (tAct < -1500) // Temperature < -15°C
         {
-            tAct2 = (tDiff * tDiff) >> 31;
-            int64_t x = tAct - 2000;
-            x = 5 * x * x;
-            tOff2 = x >> 1;
-            tSens2 = x >> 2;
-            if (tAct < -1500) // Temperature < -15°C
-            {
-                x = tAct + 1500;
-                x = x * x;
-                tOff2 += 7 * x;
-                tSens2 += ((11 * x) >> 2);
-            }
-            tAct -= tAct2;
-            tOff -= tOff2;
-            tSens -= tSens2;
+            x = tAct + 1500;
+            x = x * x;
+            tOff2 += 7 * x;
+            tSens2 += ((11 * x) >> 2);
         }
-
-        temperature = tAct / 100.0f;
-        tCompPres = (((((int64_t)dpt[0] * tSens) >> 21) - tOff) >> 15);
-        pressure = tCompPres / 100.0f;
-        alt = (((tsl + 273.15f) / -0.0065f) * (pow(pressure / qnh, 0.1902632f) - 1.0f));
+        tAct -= tAct2;
+        tOff -= tOff2;
+        tSens -= tSens2;
     }
+
+    temperature = tAct / 100.0f;
+    tCompPres = (((((int64_t)dpt[0] * tSens) >> 21) - tOff) >> 15);
+    pressure = tCompPres / 100.0f;
+    alt = (((tsl + 273.15f) / -0.0065f) * (pow(pressure / qnh, 0.1902632f) - 1.0f));
 }
 
-float Baro::CalculateAlpha(float f, float dt)
+void Baro::ApplyFilter(float dt)
 {
-    if (f < 0.0f)
-    {
-        return 1.0f;
-    }
-    float omega = f * 2.0f * M_PI;
-    return (omega * dt / (1.0f + omega * dt));
-}
+    float rk;
+    xk = xk1 + (vk1 * dt);
+    vk = vk1;
+    rk = alt - xk;
+    xk = xk + alpha * rk;
+    vk = vk + (2.0f * (2.0f - alpha) - 4.0f * (sqrt(1.0f - alpha))) * rk / dt;
 
-void Baro::CalculateFilteredAltVs(float dt)
-{
-    float altAlpha = CalculateAlpha(fCutAlt, dt);
-    altf = (1.0f - altAlpha) * altfp + altAlpha * alt; // Filtered altitude
-    vs = (altf - altfp) / dt;                          // Vertical speed
-    altfp = altf;
+    xk1 = xk;
+    vk1 = vk;
 }

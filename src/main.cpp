@@ -2,7 +2,7 @@
  *                                                                                         *
  *    Vario-Black                                                                          *
  *                                                                                         *
- *    Copyright (c) 2022 Onur AKIN <https://github.com/onurae>                             *
+ *    Copyright (c) 2023 Onur AKIN <https://github.com/onurae>                             *
  *    Licensed under the MIT License.                                                      *
  *                                                                                         *
  ******************************************************************************************/
@@ -22,8 +22,11 @@ ST7567_FB lcd(7, 8, 6);
 
 // Sensor
 Baro baro;
+const float dt = 0.1; // 10Hz
+int8_t counter = 0;
 
 // Main loop
+const int8_t period = 50; // Main loop period [ms]
 unsigned long start;
 unsigned long end;
 int8_t elapsed;
@@ -49,12 +52,14 @@ void setup()
     if (!baro.Init()) // Pressure refresh rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above.
     {
         Serial.println(F("Error"));
-        while(true);
+        while (true)
+            ;
     }
 
     // Main loop
     start = millis();
 
+    // delete this.
     lcd.cls();
     lcd.drawRectD(0, 0, SCR_WD, SCR_HT, 1);
     int x = 16, y = 10;
@@ -72,8 +77,7 @@ void loop()
     // Period
     end = millis();
     elapsed = end - start;
-    //Serial.println(elapsed);
-    int8_t period = 100;
+    // Serial.println(elapsed);
     if (elapsed < period)
     {
         Delay(period - elapsed);
@@ -81,10 +85,20 @@ void loop()
     start = millis();
 
     // Sensor
-    baro.Update(period / 1000.0f);
-    Serial.print(baro.GetAlt());
-    Serial.print("   ");
-    Serial.println(baro.GetVario());
+    counter += 1;
+    if (counter >= (int8_t)(dt * 1000) / period)
+    {
+        counter = 0;
+        baro.Update(dt);
+        if (baro.GetState() == true)
+        {
+            Serial.print(baro.GetAlt());
+            Serial.print("   ");
+            Serial.print(baro.GetX());
+            Serial.print("   ");
+            Serial.println(baro.GetV());
+        }
+    }
 
     // Power off
     if (digitalRead(BUTTON_BACK) == 0)
