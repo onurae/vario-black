@@ -54,6 +54,7 @@ void setup()
     lcd.setContrast(0);
     lcd.setRotation(4);
     lcd.cls();
+    lcd.display();
 
     // Sensor [Pressure rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above]
     if (baro.Init() == false)
@@ -117,7 +118,9 @@ void loop()
     if (IsButtonPressed(BUTTON_BACK) == true)
     {
         toneAC(1000, 10, 200, true);
-        Delay(500);
+        lcd.cls();
+        lcd.display();
+        Delay(100);
         pinMode(BUTTON_OK, INPUT);
     }
 }
