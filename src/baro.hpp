@@ -42,7 +42,7 @@ private:
     void Calculate();
     float temperature = 0; // [°C]
     float pressure = 0;    // [mbar]
-    float qnh = 1023.00;   // Mean sea level pressure [mbar]
+    float qnh = 1013.25;   // Mean sea level pressure [mbar]
     float tsl = 25.0;      // Temperature sea level [°C]
     float alt = 0;         // Altitude sea level [m]
     bool state = false;    // false: Pres read, temp cmd. true: Pres cmd, temp read.
