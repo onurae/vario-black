@@ -10,6 +10,7 @@
 #include "ST7567_FB.h"
 #include "toneAC.h"
 #include "baro.hpp"
+#include "font.hpp"
 #include "c64enh_font.h"
 
 // Buttons
@@ -130,32 +131,30 @@ void UpdateLcd()
     lcd.cls();
     lcd.setFont(c64enh);
     i += 1;
-    if (i > 100)
+    if (i > 30)
     {
         i = 0;
     }
     lcd.printStr(i + 5, 5, "X");
 
-    lcd.printStr(ALIGN_CENTER, 50, "Hello World!");
-    char buf[10];
-    int t1 = baro.GetX();
-    int t10 = baro.GetX() * 10 - t1 * 10;
-    snprintf(buf, 10, "%d.%d ", t1, t10);
-    lcd.setFont(Bold13x20);
-    lcd.printStr(20, 10, buf);
+    //lcd.printStr(ALIGN_CENTER, 50, "Hello World!");
+    char buf[6];
+    snprintf(buf, 6, "%d", (int16_t)baro.GetX());
+    lcd.setFont(Arial16x21);
+    lcd.printStr(44, 4, buf);
+    int8_t k = 1;
     if (baro.GetV() < 0)
     {
-        snprintf(buf, 10, "%s%d.%d ", "-", int8_t(baro.GetV() * -1), int8_t(baro.GetV() * -10) % 10);
+        snprintf(buf, 6, "%s", "-");
+        lcd.printStr(30, 40, buf);
+        k = -1;
     }
-    else
-    {
-        snprintf(buf, 10, "%s%d.%d ", " ", int8_t(baro.GetV() * 1), int8_t(baro.GetV() * 10) % 10);
-    }
-
+    snprintf(buf, 6, "%d.%d ", int8_t(baro.GetV() * k), int8_t(baro.GetV() * 10 * k) % 10);
+    lcd.printStr(44, 40, buf);
     // lcd.printStr(80, 10, buf);
     // lcd.drawRectD(0, 0, 128, 64, 1);
     // lcd.drawRect(18, 20, 127 - 18 * 2, 63 - 20 * 2, 1);
-    
+
     lcd.display();
     // lcd.displayInvert(true);
 }
