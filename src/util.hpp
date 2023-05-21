@@ -13,5 +13,7 @@
 #include <Arduino.h>
 
 void Delay(unsigned long interval);
+bool IsButtonPressed(int8_t button);
+void LoopForever();
 
 #endif /* UTIL_HPP */

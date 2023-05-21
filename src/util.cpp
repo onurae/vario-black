@@ -18,3 +18,16 @@ void Delay(unsigned long interval)
         current = millis();
     }
 }
+
+bool IsButtonPressed(int8_t button)
+{
+    return (digitalRead(button) == LOW) ? true : false;
+}
+
+void LoopForever()
+{
+    while (true)
+    {
+        Delay(1000);
+    }
+}
