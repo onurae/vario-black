@@ -146,7 +146,7 @@ void ST7567_FB::init(int contrast)
   SPI.begin();
   SPI.setDataMode(SPI_MODE0);
 #ifdef __AVR__
-  SPI.setClockDivider(SPI_CLOCK_DIV2);
+  SPI.setClockDivider(SPI_CLOCK_DIV8);
 #endif
 #else
   pinMode(sdiPin, OUTPUT);
@@ -237,6 +237,10 @@ void ST7567_FB::setRotation(int mode)
     case 2:
       sendCmd(ST7567_SEG_REMAP);
       sendCmd(ST7567_COM_NORMAL);
+      break;
+    case 4:
+      sendCmd(ST7567_SEG_REMAP);
+      sendCmd(ST7567_COM_REMAP);
       break;
   }
   CS_IDLE;
