@@ -11,13 +11,22 @@
 #include "toneAC.h"
 #include "baro.hpp"
 #include "font.hpp"
-#include "c64enh_font.h"
 
 // Buttons
 #define BUTTON_OK PIN_A0
 #define BUTTON_BACK PIN_A1
 #define BUTTON_UP PIN_A2
 #define BUTTON_DOWN PIN_A3
+
+// Sound
+int volume = 10; // 0-10
+unsigned long beepTime = 0;
+int beepDuration = 1000;
+int soundFreq = 700;
+int soundFreqInc = 100; // Per 1 m/s
+float climbThr = 0.1;
+float sinkThr = -2.4;
+void UpdateSound();
 
 // Screen
 ST7567_FB lcd(7, 8, 6); // dc, rst, cs.
@@ -107,6 +116,9 @@ void loop()
         }
     }
 
+    // Update sound
+    UpdateSound();
+
     // Screen
     counterLcd += 1;
     if (counterLcd >= (1000 / fps / period))
@@ -126,10 +138,41 @@ void loop()
     }
 }
 
+void UpdateSound()
+{
+    if (int(millis() - beepTime) >= 2 * beepDuration)
+    {
+        float vario = baro.GetV();
+        float v = int(vario * 10) / 10.0f;
+        if (int(vario * 10) >= int(climbThr * 10))
+        {
+            if (int(vario * 10) >= 37)
+            {
+                beepDuration = 50;
+            }
+            else
+            {
+                beepDuration = int(((-0.0002 * v * v * v * v + 0.0003 * v * v * v + 0.0194 * v * v - 0.145 * v + 0.392) * 1000) / 50.0) * 50;
+                beepTime = millis();
+            }
+            toneAC(soundFreq + soundFreqInc * (v - 0.1), volume, beepDuration, true);
+        }
+        else if (int(vario * 10) < int(sinkThr * 10))
+        {
+            beepDuration = 500;
+            toneAC(360 + int(v * 20), 5, 0, true);
+        }
+        else
+        {
+            toneAC(0);
+        }
+    }
+}
+
 void UpdateLcd()
 {
     lcd.cls();
-    lcd.setFont(c64enh);
+    lcd.setFont(c64);
     i += 1;
     if (i > 30)
     {
@@ -137,11 +180,11 @@ void UpdateLcd()
     }
     lcd.printStr(i + 5, 5, "X");
 
-    //lcd.printStr(ALIGN_CENTER, 50, "Hello World!");
+    lcd.printStr(ALIGN_CENTER, 30, "Hello 845");
     char buf[6];
     snprintf(buf, 6, "%d", (int16_t)baro.GetX());
     lcd.setFont(Arial16x21);
-    lcd.printStr(44, 4, buf);
+    lcd.printStr(44, 4, buf); // when 4 digits?
     int8_t k = 1;
     if (baro.GetV() < 0)
     {
@@ -151,6 +194,11 @@ void UpdateLcd()
     }
     snprintf(buf, 6, "%d.%d ", int8_t(baro.GetV() * k), int8_t(baro.GetV() * 10 * k) % 10);
     lcd.printStr(44, 40, buf);
+
+    lcd.setFont(c64);
+    snprintf(buf, 6, "%d C*", int8_t(baro.GetT()));
+    lcd.printStr(90, 40, buf);
+
     // lcd.printStr(80, 10, buf);
     // lcd.drawRectD(0, 0, 128, 64, 1);
     // lcd.drawRect(18, 20, 127 - 18 * 2, 63 - 20 * 2, 1);
