@@ -42,8 +42,11 @@ const int8_t freq = 10; // 10Hz
 int8_t counterBaro = 0;
 
 // Battery
+#define PIN_BAT PIN_A2
 int batteryLevel = 0; // [%]
-void MeasureBattery();
+float vfp = 1.25f;
+const float gamma = 0.005f;
+void UpdateBattery();
 
 // Main loop
 const int8_t period = 50; // [ms]
@@ -68,13 +71,22 @@ void setup()
     lcd.setContrast(0);
     lcd.setRotation(4);
     lcd.cls();
+    lcd.setFont(c64);
+    lcd.printStr(ALIGN_CENTER, 25, "vario-black"); // TODO logo.
     lcd.display();
+    Delay(1000);
 
     // Sensor [Pressure rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above]
     if (baro.Init() == false)
     {
         Serial.println(F("Sensor error"));
         LoopForever();
+    }
+
+    // Battery
+    for (int i = 0; i < 1000; i++) // ~100ms.
+    {
+        UpdateBattery();
     }
 
     // Main loop
@@ -134,7 +146,7 @@ void loop()
     }
 
     // Battery
-    MeasureBattery(); // TODO counterBattery?
+    UpdateBattery();
 
     // Power off
     if (IsButtonPressed(BUTTON_BACK) == true)
@@ -174,13 +186,15 @@ void UpdateSound()
     }
 }
 
-void MeasureBattery()
+void UpdateBattery()
 {
-    int value = 0;
-    value = analogRead(PIN_A2); // filter
+    int value = analogRead(PIN_BAT);
     float voltage = value * (3.3f / 1024.0f);
+    // Filtered voltage
+    float vf = (1.0f - gamma) * vfp + gamma * voltage;
+    vfp = vf;
     // Assume linear discharge curve.
-    batteryLevel = (100.0f * (voltage - 1.0f) / (1.5f - 1.0f)); // Max: 1.5V, Min: 1.0V
+    batteryLevel = (100.0f * (vf - 1.0f) / (1.5f - 1.0f)); // Max: 1.5V, Min: 1.0V
     if (batteryLevel >= 100)
     {
         batteryLevel = 100;
