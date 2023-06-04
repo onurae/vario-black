@@ -14,9 +14,9 @@
 
 // Buttons
 #define BUTTON_OK PIN_A0
-#define BUTTON_BACK PIN_A1
-#define BUTTON_UP PIN_A2
-#define BUTTON_DOWN PIN_A3
+#define BUTTON_BACK 5
+#define BUTTON_UP 3
+#define BUTTON_DOWN 4
 
 // Sound
 int volume = 10; // 0-10
@@ -40,6 +40,10 @@ void UpdateLcd();
 Baro baro;
 const int8_t freq = 10; // 10Hz
 int8_t counterBaro = 0;
+
+// Battery
+int batteryLevel = 0; // [%]
+void MeasureBattery();
 
 // Main loop
 const int8_t period = 50; // [ms]
@@ -100,11 +104,13 @@ void loop()
             // Print baro values only when the state is true.
             if (baro.GetState() == true)
             {
+                /*
                 Serial.print(baro.GetAlt());
                 Serial.print(F("   "));
                 Serial.print(baro.GetX());
                 Serial.print(F("   "));
                 Serial.println(baro.GetV());
+                */
                 // Serial.print(F("   "));
                 // CalculateAverageVario(baro.GetV());
                 // Serial.println(vsAverage);
@@ -112,11 +118,11 @@ void loop()
         }
         else
         {
-            Serial.println(F("Sensor failure"));
+            Serial.println(F("Sensor failure")); // TODO ekrana yazdir.
         }
     }
 
-    // Update sound
+    // Sound
     UpdateSound();
 
     // Screen
@@ -126,6 +132,9 @@ void loop()
         counterLcd = 0;
         UpdateLcd();
     }
+
+    // Battery
+    MeasureBattery(); // TODO counterBattery?
 
     // Power off
     if (IsButtonPressed(BUTTON_BACK) == true)
@@ -144,28 +153,41 @@ void UpdateSound()
     {
         float vario = baro.GetV();
         float v = int(vario * 10) / 10.0f;
+        beepDuration = 50;
         if (int(vario * 10) >= int(climbThr * 10))
         {
-            if (int(vario * 10) >= 37)
+            if (int(vario * 10) < 37)
             {
-                beepDuration = 50;
-            }
-            else
-            {
-                beepDuration = int(((-0.0002 * v * v * v * v + 0.0003 * v * v * v + 0.0194 * v * v - 0.145 * v + 0.392) * 1000) / 50.0) * 50;
+                beepDuration = int(((-0.0002f * v * v * v * v + 0.0003f * v * v * v + 0.0194f * v * v - 0.145f * v + 0.392f) * 1000.0f) / 50.0f) * 50;
                 beepTime = millis();
             }
-            toneAC(soundFreq + soundFreqInc * (v - 0.1), volume, beepDuration, true);
+            toneAC(soundFreq + soundFreqInc * (v - 0.1f), volume, beepDuration, true);
         }
         else if (int(vario * 10) < int(sinkThr * 10))
         {
-            beepDuration = 500;
-            toneAC(360 + int(v * 20), 5, 0, true);
+            toneAC(360 + int(v * 20.0f), 5, 0, true);
         }
         else
         {
             toneAC(0);
         }
+    }
+}
+
+void MeasureBattery()
+{
+    int value = 0;
+    value = analogRead(PIN_A2); // filter
+    float voltage = value * (3.3f / 1024.0f);
+    // Assume linear discharge curve.
+    batteryLevel = (100.0f * (voltage - 1.0f) / (1.5f - 1.0f)); // Max: 1.5V, Min: 1.0V
+    if (batteryLevel >= 100)
+    {
+        batteryLevel = 100;
+    }
+    else if (batteryLevel <= 0)
+    {
+        batteryLevel = 0;
     }
 }
 
@@ -198,6 +220,9 @@ void UpdateLcd()
     lcd.setFont(c64);
     snprintf(buf, 6, "%d C*", int8_t(baro.GetT()));
     lcd.printStr(90, 40, buf);
+
+    snprintf(buf, 6, "%d", batteryLevel);
+    lcd.printStr(110, 10, buf);
 
     // lcd.printStr(80, 10, buf);
     // lcd.drawRectD(0, 0, 128, 64, 1);
