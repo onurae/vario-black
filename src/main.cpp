@@ -130,7 +130,7 @@ void loop()
         }
         else
         {
-            Serial.println(F("Sensor failure")); // TODO ekrana yazdir.
+            Serial.println(F("Sensor failure")); // TODO birden fazla gelirse ekrana yazdir.
         }
     }
 
@@ -189,7 +189,7 @@ void UpdateSound()
 void UpdateBattery()
 {
     int value = analogRead(PIN_BAT);
-    float voltage = value * (3.3f / 1024.0f);
+    float voltage = value * (3.3f / 1024.0f) * 0.5f; // 1 battery.
     // Filtered voltage
     float vf = (1.0f - gamma) * vfp + gamma * voltage;
     vfp = vf;
@@ -245,3 +245,24 @@ void UpdateLcd()
     lcd.display();
     // lcd.displayInvert(true);
 }
+
+/*
+// Average vario, only used for gain in thermal function.
+int8_t arr[freq * 15] = {0}; // Max. 30 seconds average: (freq/2)*30
+int16_t vsIndex = 0;
+long vsSum = 0;
+float vsAverage = 0;
+int vsAverageTime = 10;
+void CalculateAverageVario(float vk)
+{
+    vsSum -= arr[vsIndex];
+    arr[vsIndex] = int8_t(vk * 10.0f); // [-12.8, 12.7]
+    vsSum += arr[vsIndex];
+    vsIndex += 1;
+    if (vsIndex >= int16_t(vsAverageTime * freq * 0.5f))
+    {
+        vsIndex = 0;
+    }
+    vsAverage = vsSum / 10.0f / (vsAverageTime * freq * 0.5f);
+}
+*/
