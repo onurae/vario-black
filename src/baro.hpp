@@ -65,6 +65,7 @@ public:
     float GetAlt() { return alt; }
     float GetX() { return xk; }
     float GetV() { return vk; }
+    float GetT() { return temperature; }
 };
 
 #endif /* BARO_HPP */
