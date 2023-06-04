@@ -45,7 +45,7 @@ int8_t counterBaro = 0;
 #define PIN_BAT PIN_A2
 int batteryLevel = 0; // [%]
 float vfp = 1.25f;
-const float gamma = 0.005f;
+const float gamma = 0.002f;
 void UpdateBattery();
 
 // Main loop
@@ -84,7 +84,7 @@ void setup()
     }
 
     // Battery
-    for (int i = 0; i < 1000; i++) // ~100ms.
+    for (int i = 0; i < 5000; i++) // ~500ms.
     {
         UpdateBattery();
     }
