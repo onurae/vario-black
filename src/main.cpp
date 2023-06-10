@@ -68,7 +68,7 @@ void setup()
 
     // Screen
     lcd.init();
-    lcd.setContrast(0);
+    lcd.setContrast(27);
     lcd.setRotation(4);
     lcd.cls();
     lcd.setFont(c64);

@@ -74,7 +74,8 @@ const uint8_t initData[] PROGMEM = {
   ST7567_POWER_CTL | 0x4,
   ST7567_POWER_CTL | 0x6, // turn on voltage regulator (VC=1, VR=1, VF=0)
   ST7567_POWER_CTL | 0x7, // turn on voltage follower (VC=1, VR=1, VF=1)
-  ST7567_RESISTOR_RATIO | 0x6, // set lcd operating voltage (regulator resistor, ref voltage resistor)
+  //ST7567_RESISTOR_RATIO | 0x6, // set lcd operating voltage (regulator resistor, ref voltage resistor)
+  ST7567_RESISTOR_RATIO | 0x3,
   ST7567_SCAN_START_LINE+0,
   ST7567_DISPLAY_ON,
   ST7567_DISPLAY_NORMAL
@@ -160,7 +161,14 @@ void ST7567_FB::init(int contrast)
 void ST7567_FB::initCmds()
 {
   CS_ACTIVE;
-  for(unsigned int i=0; i<sizeof(initData); i++) sendCmd(pgm_read_byte(initData+i));
+  for(unsigned int i=0; i<sizeof(initData); i++)
+  {
+    sendCmd(pgm_read_byte(initData+i));
+    if ((i >=3) && (i <=5))
+    {
+      delay(50);
+    }
+  }
   /*
   sendCmd(ST7567_BIAS_7);
   sendCmd(ST7567_SEG_NORMAL);
