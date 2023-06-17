@@ -9,6 +9,14 @@
 
 #include "util.hpp"
 
+int DigitalPotWrite(int value)
+{
+    digitalWrite(POT_CS, LOW);
+    SPI.transfer(POT_ADDRESS);
+    SPI.transfer(value);
+    digitalWrite(POT_CS, HIGH);
+}
+
 void Delay(unsigned long interval)
 {
     unsigned long previous = millis();

@@ -11,6 +11,11 @@
 #define UTIL_HPP
 
 #include <Arduino.h>
+#include <SPI.h>
+
+#define POT_ADDRESS 0x11
+#define POT_CS 7
+int DigitalPotWrite(int value);
 
 void Delay(unsigned long interval);
 bool IsButtonPressed(int8_t button);

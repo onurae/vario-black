@@ -19,7 +19,7 @@
 #define BUTTON_DOWN 4
 
 // Sound
-int volume = 10; // 0-10
+int8_t volume = 100; // 0-100%
 unsigned long beepTime = 0;
 int beepDuration = 1000;
 int soundFreq = 700;
@@ -65,6 +65,9 @@ void setup()
     pinMode(BUTTON_BACK, INPUT_PULLUP);
     pinMode(BUTTON_UP, INPUT_PULLUP);
     pinMode(BUTTON_DOWN, INPUT_PULLUP);
+
+    // Digital Pot.
+    pinMode(POT_CS, OUTPUT);
 
     // Screen
     lcd.init();
@@ -173,7 +176,7 @@ void UpdateSound()
                 beepDuration = int(((-0.0002f * v * v * v * v + 0.0003f * v * v * v + 0.0194f * v * v - 0.145f * v + 0.392f) * 1000.0f) / 50.0f) * 50;
                 beepTime = millis();
             }
-            toneAC(soundFreq + soundFreqInc * (v - 0.1f), volume, beepDuration, true);
+            toneAC(soundFreq + soundFreqInc * (v - 0.1f), 10, beepDuration, true);
         }
         else if (int(vario * 10) < int(sinkThr * 10))
         {
@@ -216,11 +219,11 @@ void UpdateLcd()
     }
     lcd.printStr(i + 5, 5, "X");
 
-    lcd.printStr(ALIGN_CENTER, 30, "Hello 845");
+    // lcd.printStr(ALIGN_CENTER, 0, "hi ========== 845");
     char buf[6];
     snprintf(buf, 6, "%d", (int16_t)baro.GetX());
     lcd.setFont(Arial16x21);
-    lcd.printStr(44, 4, buf); // when 4 digits?
+    lcd.printStr(44, 15, buf); // when 4 digits?
     int8_t k = 1;
     if (baro.GetV() < 0)
     {
@@ -228,15 +231,20 @@ void UpdateLcd()
         lcd.printStr(30, 40, buf);
         k = -1;
     }
-    snprintf(buf, 6, "%d.%d ", int8_t(baro.GetV() * k), int8_t(baro.GetV() * 10 * k) % 10);
-    lcd.printStr(44, 40, buf);
+    snprintf(buf, 6, "%d.%d ", int8_t(baro.GetV() * k), int8_t(baro.GetV() * 10 * k) % 10); // when -10.0?
+    lcd.printStr(44, 42, buf);
 
     lcd.setFont(c64);
-    snprintf(buf, 6, "%d C*", int8_t(baro.GetT()));
-    lcd.printStr(90, 40, buf);
+    snprintf(buf, 6, "%dC", int8_t(baro.GetT())); // add deg.
+    lcd.printStr(50, 0, buf);
 
     snprintf(buf, 6, "%d", batteryLevel);
-    lcd.printStr(110, 10, buf);
+    lcd.printStr(110, 0, buf);
+    lcd.printStr(120, 0, "%");
+
+    lcd.drawLineHfast(40, 120, 10, 1); // 30byte
+
+    lcd.printStr(80, 0, "10%"); // sound
 
     // lcd.printStr(80, 10, buf);
     // lcd.drawRectD(0, 0, 128, 64, 1);
