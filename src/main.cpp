@@ -18,6 +18,9 @@
 #define BUTTON_UP 3
 #define BUTTON_DOWN 4
 
+// Backlight
+#define BACKLIGHT_PIN PIN_A3
+
 // Sound
 int8_t volume = 100; // 0-100%
 unsigned long beepTime = 0;
@@ -69,6 +72,9 @@ void setup()
     // Digital Pot.
     pinMode(POT_CS, OUTPUT);
 
+    // Backlight.
+    pinMode(BACKLIGHT_PIN, OUTPUT);
+
     // Screen
     lcd.init();
     lcd.setContrast(27);
@@ -78,6 +84,10 @@ void setup()
     lcd.printStr(ALIGN_CENTER, 25, "vario-black"); // TODO logo.
     lcd.display();
     Delay(1000);
+
+    // TODO Set settings.
+    // DigitalPotWrite(100); // Set volume. No need. it is saved on the chip.
+    digitalWrite(BACKLIGHT_PIN, LOW); // Turn backlight off.
 
     // Sensor [Pressure rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above]
     if (baro.Init() == false)
@@ -160,6 +170,18 @@ void loop()
         Delay(100);
         pinMode(BUTTON_OK, INPUT);
     }
+
+    // Backlight Test
+    if (IsButtonPressed(BUTTON_UP) == true)
+    {
+        digitalWrite(BACKLIGHT_PIN, LOW);
+        DigitalPotWrite(100);
+    }
+    if (IsButtonPressed(BUTTON_DOWN) == true)
+    {
+        digitalWrite(BACKLIGHT_PIN, HIGH);
+        DigitalPotWrite(250); // Max 250 for 10mA!
+    }
 }
 
 void UpdateSound()
@@ -180,7 +202,7 @@ void UpdateSound()
         }
         else if (int(vario * 10) < int(sinkThr * 10))
         {
-            toneAC(360 + int(v * 20.0f), 5, 0, true);
+            toneAC(360 + int(v * 20.0f), 5, 0, true); // Sink volume: 50% of the climb volume.
         }
         else
         {
