@@ -86,13 +86,15 @@ void setup()
     Delay(1000);
 
     // TODO Set settings.
-    // DigitalPotWrite(100); // Set volume. No need. it is saved on the chip.
+    // DigitalPotWrite(100); // Set volume. No need. it is saved on the chip. Move to eeprom code, TODO
     digitalWrite(BACKLIGHT_PIN, LOW); // Turn backlight off.
 
     // Sensor [Pressure rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above]
     if (baro.Init() == false)
     {
-        Serial.println(F("Sensor error"));
+        Serial.println(F("sensor error"));
+        lcd.printStr(ALIGN_CENTER, 40, "sensor error!");
+        lcd.display();
         LoopForever();
     }
 
