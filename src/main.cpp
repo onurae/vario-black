@@ -12,17 +12,22 @@
 #include "baro.hpp"
 #include "font.hpp"
 #include <EEPROM.h>
+#include <SPI.h>
 
 // Buttons
 #define BUTTON_OK PIN_A0
 #define BUTTON_BACK 5
 #define BUTTON_UP 3
 #define BUTTON_DOWN 4
-int counterButton = 0;
-void CheckButtons();
+void DetectLongPress();
+
+// Pot
+#define POT_ADDRESS 0x11
+#define POT_CS 7
+void UpdatePot(int16_t volume);
 
 // Sound
-int8_t volume = 100; // 0-100%
+int8_t volume = 0; // 0-100%
 unsigned long beepTime = 0;
 int beepDuration = 1000;
 int soundFreq = 700;
@@ -30,19 +35,30 @@ int soundFreqInc = 100; // Per 1 m/s
 float climbThr = 0.1;
 float sinkThr = -2.4;
 void UpdateSound();
+void PlaySound(unsigned long frequency, unsigned long length = 0,
+               uint8_t background = false, uint8_t tVolume = 10);
 
 // Screen
+char buf[20];
 #define BACKLIGHT_PIN PIN_A3
 ST7567_FB lcd(7, 8, 6); // dc, rst, cs.
 const int8_t fps = 2;   // 2Hz
-int8_t counterScreen = 0;
-int8_t stateScreen = 0;
-void UpdateScreen();
+void UpdateMainScreen();
+
+// Settings
+int8_t stateSettings = 0;
+const char *textSettings[] = {"SETTINGS", "Volume", "Altitude", "Pressure MSL",
+                              "Alpha", "Climb Threshold", "Sink Threshold",
+                              "Contrast", "Battery", "Backlight", "About", "Reset"};
+void Settings();
+void UpdateSettingsScreen();
+int16_t value = 0;
+void ChangeVolume();
+void DisplayVolume();
 
 // Sensor
 Baro baro;
 const int8_t freq = 10; // 10Hz
-int8_t counterSensor = 0;
 void UpdateSensor();
 
 // Battery
@@ -60,11 +76,11 @@ int8_t elapsed;
 
 void setup()
 {
-    //Serial.begin(115200);
-    //Serial.println("vario-black");
+    // Serial.begin(115200);
+    // Serial.println("vario-black");
 
     // Power
-    toneAC(1000, 10, 200, true);
+    PlaySound(1000, 200);
 
     // Buttons
     pinMode(BUTTON_OK, INPUT_PULLUP);
@@ -90,22 +106,25 @@ void setup()
     // Settings
     if (EEPROM.read(0) == 255)
     {
-        EEPROM.write(0, 0);     // eeprom
-        EEPROM.write(1, 1);     // alpha
-        EEPROM.write(2, 2);     // climbthr*10
-        EEPROM.write(3, 30);    // -1*sinkthr*10
-        EEPROM.write(4, 70);    // soundfreq/10
-        EEPROM.write(5, 10);    // soundfreqinc
-        EEPROM.write(6, 10);    // volume
+        EEPROM.write(0, 0);  // eeprom
+        EEPROM.write(1, 1);  // alpha
+        EEPROM.write(2, 2);  // climbthr*10
+        EEPROM.write(3, 30); // -1*sinkthr*10
+        EEPROM.write(4, 70); // soundfreq/10
+        EEPROM.write(5, 10); // soundfreqinc
+        EEPROM.write(6, 80); // volume %
         lcd.printStr(ALIGN_CENTER, 40, "eeprom set!");
-        DigitalPotWrite(100);   // pot.
+        UpdatePot(100); // pot.
         Delay(5000);
-    }    
+    }
+
+    // Read EEPROM
+    volume = EEPROM.read(6);
 
     // Sensor [Pressure rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above]
     if (baro.Init() == false)
     {
-        //Serial.println(F("sensor error"));
+        // Serial.println(F("sensor error"));
         lcd.printStr(ALIGN_CENTER, 40, "sensor error!");
         lcd.display();
         LoopForever();
@@ -125,27 +144,48 @@ void loop()
 {
     end = millis();
     elapsed = end - start;
-    if (elapsed < period) { Delay(period - elapsed); } else 
-    { 
-        //Serial.println(elapsed);
+    if (elapsed < period)
+    {
+        Delay(period - elapsed);
+    }
+    else
+    {
+        // Serial.println(elapsed);
     }
     start = millis();
 
     UpdateSensor();
     UpdateSound();
     UpdateBattery();
-    UpdateScreen();
-    CheckButtons();
+    UpdateMainScreen();
+    DetectLongPress();
 }
 
 void UpdateSensor()
 {
+    static int8_t counterSensor = 0;
     counterSensor += 1;
     if (counterSensor >= (1000 / freq / period))
     {
         counterSensor = 0;
         baro.Update(1.0f / freq);
     }
+}
+
+void UpdatePot(int16_t volume)
+{
+    if (volume >= 0 && volume <= 100)
+    {
+        digitalWrite(POT_CS, LOW);
+        SPI.transfer(POT_ADDRESS);
+        SPI.transfer(volume * 2.5f); // Max:250, 10mA.
+        digitalWrite(POT_CS, HIGH);
+    }
+}
+
+void PlaySound(unsigned long frequency, unsigned long length, uint8_t background, uint8_t tVolume)
+{
+    toneAC(frequency, volume == 0 ? 0 : tVolume, length, background);
 }
 
 void UpdateSound()
@@ -162,15 +202,15 @@ void UpdateSound()
                 beepDuration = int(((-0.0002f * v * v * v * v + 0.0003f * v * v * v + 0.0194f * v * v - 0.145f * v + 0.392f) * 1000.0f) / 50.0f) * 50;
                 beepTime = millis();
             }
-            toneAC(soundFreq + soundFreqInc * (v - 0.1f), 10, beepDuration, true);
+            PlaySound(soundFreq + soundFreqInc * (v - 0.1f), beepDuration, true);
         }
         else if (int(vario * 10) < int(sinkThr * 10))
         {
-            toneAC(360 + int(v * 20.0f), 5, 0, true); // Sink volume: 50% of the climb volume.
+            PlaySound(360 + int(v * 20.0f), 0, true, 5); // Sink volume: 50% of the climb volume.
         }
         else
         {
-            toneAC(0);
+            PlaySound(0);
         }
     }
 }
@@ -194,103 +234,197 @@ void UpdateBattery()
     }
 }
 
-void UpdateScreen()
+void UpdateMainScreen()
 {
+    static int8_t counterScreen = 0;
     counterScreen += 1;
     if (counterScreen < (1000 / fps / period))
     {
         return;
     }
     counterScreen = 0;
+
     lcd.cls();
-    
+
     if (baro.CheckFailure() == true)
     {
-        //Serial.println(F("Sensor failure")); // TODO
-        //stateScreen = 3; // TODO
+        // Serial.println(F("Sensor failure")); // TODO
+        // stateScreen = 3; // TODO
     }
 
-    if (stateScreen == 0)
+    // lcd.printStr(ALIGN_CENTER, 0, "hi ========== 845");
+    // char buf[6];
+    snprintf(buf, 6, "%d", (int16_t)baro.GetX() + 143);
+    lcd.setFont(Arial18x23);
+    // lcd.setFontMinWd(18);
+    lcd.printStr(20, 5, buf); // when 4 digits?
+    int8_t k = 1;
+    if (baro.GetV() < 0)
     {
-        // lcd.printStr(ALIGN_CENTER, 0, "hi ========== 845");
-        char buf[6];
-        snprintf(buf, 6, "%d", (int16_t)baro.GetX() +143);
-        lcd.setFont(Arial18x23);
-        //lcd.setFontMinWd(18);
-        lcd.printStr(20, 5, buf); // when 4 digits?
-        int8_t k = 1;
-        if (baro.GetV() < 0)
-        {
-            snprintf(buf, 6, "%s", "-");
-            lcd.printStr(10, 40, buf);
-            k = -1;
-        }
-        snprintf(buf, 6, "%d.%d ", int8_t(baro.GetV() * k), int8_t(baro.GetV() * 10 * k) % 10); // when -10.0?
-        lcd.printStr(20, 37, buf);
-
-        //lcd.setFont(c64);
-        //snprintf(buf, 6, "%dC", int8_t(baro.GetT())); // add deg.
-        //lcd.printStr(50, 0, buf);
-
-        //snprintf(buf, 6, "%d", batteryLevel);
-        //lcd.printStr(110, 0, buf);
-        //lcd.printStr(120, 0, "%");
-
-        //lcd.drawLineHfast(40, 120, 10, 1); // 30byte
-
-        //lcd.printStr(80, 0, "10%"); // sound
-
-        // lcd.printStr(80, 10, buf);
-        // lcd.drawRectD(0, 0, 128, 64, 1);
-        // lcd.drawRect(18, 20, 127 - 18 * 2, 63 - 20 * 2, 1);
+        snprintf(buf, 6, "%s", "-");
+        lcd.printStr(10, 40, buf);
+        k = -1;
     }
-    else if (stateScreen == 1)
-    {
-        lcd.setFont(c64);
-        lcd.printStr(0, 0, "AYARLAR");
-    }
+    snprintf(buf, 6, "%d.%d ", int8_t(baro.GetV() * k), int8_t(baro.GetV() * 10 * k) % 10); // when -10.0?
+    lcd.printStr(20, 37, buf);
+
+    // lcd.setFont(c64);
+    // snprintf(buf, 6, "%dC", int8_t(baro.GetT())); // add deg.
+    // lcd.printStr(50, 0, buf);
+
+    // snprintf(buf, 6, "%d", batteryLevel);
+    // lcd.printStr(110, 0, buf);
+    // lcd.printStr(120, 0, "%");
+
+    // lcd.drawLineHfast(40, 120, 10, 1); // 30byte
+
+    // lcd.printStr(80, 0, "10%"); // sound
+
+    // lcd.printStr(80, 10, buf);
+    // lcd.drawRectD(0, 0, 128, 64, 1);
+    // lcd.drawRect(18, 20, 127 - 18 * 2, 63 - 20 * 2, 1);
+
     lcd.display();
     // lcd.displayInvert(true);
 }
 
-void CheckButtons()
+void DetectLongPress()
 {
-    if (IsButtonPressed(BUTTON_BACK))
+    static int8_t counterButton = 0;
+    if (IsButtonPressed(BUTTON_BACK)) // Power off.
     {
-        if (stateScreen == 1) { stateScreen = 0; }
-
         counterButton = counterButton + 1;
         if (counterButton > (1000 / period) * 2) // 2 seconds.
         {
-            toneAC(1000, 10, 200, true);
+            counterButton = 0;
+            PlaySound(1000, 200);
             lcd.cls();
+            // turning off...? yes/no
             lcd.display();
-            Delay(100);
-            pinMode(BUTTON_OK, INPUT); // Power off.
+            Delay(1000);
+            pinMode(BUTTON_OK, INPUT);
         }
     }
     else if (IsButtonPressed(BUTTON_UP))
     {
-        digitalWrite(BACKLIGHT_PIN, LOW);
-        DigitalPotWrite(100);
+        // digitalWrite(BACKLIGHT_PIN, LOW);
+        // DigitalPotWrite(100);
     }
     else if (IsButtonPressed(BUTTON_DOWN))
     {
-        digitalWrite(BACKLIGHT_PIN, HIGH);
-        DigitalPotWrite(250); // Max 250 for 10mA!
+        // digitalWrite(BACKLIGHT_PIN, HIGH);
+        // DigitalPotWrite(250); // Max 250 for 10mA!
     }
     else if (IsButtonPressed(BUTTON_OK))
     {
-        counterButton = counterButton + 1;
-        if (counterButton > (1000 / period)) // 1s.
+        counterButton += 1;
+        if (counterButton > (1000 / period) * 2) // 2 seconds.
         {
-            stateScreen = 1;
+            counterButton = 0;
+            Settings();
         }
     }
     else
     {
         counterButton = 0;
     }
+}
+
+void Settings()
+{
+    stateSettings = 1;
+    UpdateSettingsScreen();
+    PlaySound(1000, 100);
+    Delay(100);
+    PlaySound(1000, 100);
+    Delay(500);
+
+    while (IsButtonPressed(BUTTON_BACK) == false)
+    {
+        if (IsButtonPressed(BUTTON_UP) && stateSettings > 1)
+        {
+            stateSettings--;
+            UpdateSettingsScreen();
+            Delay(200);
+        }
+        else if (IsButtonPressed(BUTTON_DOWN) && stateSettings < 11)
+        {
+            stateSettings++;
+            UpdateSettingsScreen();
+            Delay(200);
+        }
+        else if (IsButtonPressed(BUTTON_OK))
+        {
+            lcd.drawRectD(0, 30, 128, 34, 1);
+            if (stateSettings == 1)
+            {
+                value = volume;
+                DisplayVolume();
+                ChangeVolume();
+            }
+            else if (stateSettings == 2)
+            {
+                while (IsButtonPressed(BUTTON_BACK) == false)
+                {
+                    lcd.printStr(38, 40, "'()*+,-./:;<=>?");
+                    lcd.printStr(38, 50, "[]^_`{|}~");
+                    lcd.display();
+                }
+            }
+            UpdateSettingsScreen();
+            Delay(500);
+        }
+    }
+}
+
+void UpdateSettingsScreen()
+{
+    lcd.cls();
+    lcd.setFont(c64);
+    snprintf(buf, 20, "%s", textSettings[0]);
+    lcd.printStr(38, 5, buf);
+    lcd.drawLineHfast(0, 127, 15, 1);
+    snprintf(buf, 20, "%d. %s", stateSettings, textSettings[stateSettings]);
+    lcd.printStr(5, 20, buf);
+    lcd.display();
+}
+
+void ChangeVolume()
+{
+    while (IsButtonPressed(BUTTON_BACK) == false)
+    {
+        if (IsButtonPressed(BUTTON_UP) && value < 100)
+        {
+            value += 5;
+            DisplayVolume();
+            Delay(200);
+        }
+        else if (IsButtonPressed(BUTTON_DOWN) && value > 0)
+        {
+            value -= 5;
+            DisplayVolume();
+            Delay(200);
+        }
+        else if (IsButtonPressed(BUTTON_OK))
+        {
+            volume = value;
+            UpdatePot(volume);
+            EEPROM.write(6, volume);
+            Delay(500);
+        }
+    }
+}
+
+void DisplayVolume()
+{
+    lcd.fillRect(45, 44, 50, 7, 0);
+    lcd.display();
+    snprintf(buf, 20, "%s %d", "%", value);
+    lcd.printStr(45, 44, buf);
+    lcd.display();
+    UpdatePot(value);
+    PlaySound(700, 100);
+    UpdatePot(volume);
 }
 
 /*
