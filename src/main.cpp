@@ -47,14 +47,11 @@ void UpdateMainScreen();
 
 // Settings
 int8_t stateSettings = 0;
-const char *textSettings[] = {"SETTINGS", "Volume", "Altitude", "Pressure MSL",
+const char *textSettings[] = {"SETTINGS", "Volume", "Altitude",
                               "Alpha", "Climb Threshold", "Sink Threshold",
-                              "Contrast", "Battery", "Backlight", "About", "Reset"};
+                              "Contrast", "About", "Reset"};
 void Settings();
-void UpdateSettingsScreen();
 int16_t value = 0;
-void ChangeVolume();
-void DisplayVolume();
 
 // Sensor
 Baro baro;
@@ -107,19 +104,18 @@ void setup()
     if (EEPROM.read(0) == 255)
     {
         EEPROM.write(0, 0);  // eeprom
-        EEPROM.write(1, 1);  // alpha
-        EEPROM.write(2, 2);  // climbthr*10
-        EEPROM.write(3, 30); // -1*sinkthr*10
-        EEPROM.write(4, 70); // soundfreq/10
-        EEPROM.write(5, 10); // soundfreqinc
-        EEPROM.write(6, 80); // volume %
+        EEPROM.write(1, 80); // volume %
+        EEPROM.write(2, 1);  // alpha*100
+        EEPROM.write(3, 2);  // climbthr*10
+        EEPROM.write(4, 30); // -1*sinkthr*10
+        EEPROM.write(5, 70); // soundfreq/10
+        EEPROM.write(6, 10); // soundfreqinc
         lcd.printStr(ALIGN_CENTER, 40, "eeprom set!");
-        UpdatePot(100); // pot.
+        UpdatePot(EEPROM.read(1)); // pot.
         Delay(5000);
     }
-
-    // Read EEPROM
-    volume = EEPROM.read(6);
+    volume = EEPROM.read(1);
+    baro.SetAlpha(EEPROM.read(2) / 100.0f);
 
     // Sensor [Pressure rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above]
     if (baro.Init() == false)
@@ -135,6 +131,7 @@ void setup()
     {
         UpdateBattery();
     }
+    // TODO show battery level...
 
     // Main loop
     start = millis();
@@ -258,14 +255,14 @@ void UpdateMainScreen()
     lcd.setFont(Arial18x23);
     // lcd.setFontMinWd(18);
     lcd.printStr(20, 5, buf); // when 4 digits?
-    int8_t k = 1;
+    int16_t k = 1;
     if (baro.GetV() < 0)
     {
         snprintf(buf, 6, "%s", "-");
         lcd.printStr(10, 40, buf);
         k = -1;
     }
-    snprintf(buf, 6, "%d.%d ", int8_t(baro.GetV() * k), int8_t(baro.GetV() * 10 * k) % 10); // when -10.0?
+    snprintf(buf, 6, "%d.%d ", int16_t(baro.GetV() * k), int16_t(baro.GetV() * 10 * k) % 10); // when -10.0?
     lcd.printStr(20, 37, buf);
 
     // lcd.setFont(c64);
@@ -330,6 +327,86 @@ void DetectLongPress()
     }
 }
 
+void UpdateSettingsScreen()
+{
+    lcd.cls();
+    lcd.setFont(c64);
+    snprintf(buf, 20, "%s", textSettings[0]);
+    lcd.printStr(38, 5, buf);
+    lcd.drawLineHfast(0, 127, 15, 1);
+    snprintf(buf, 20, "%d. %s", stateSettings, textSettings[stateSettings]);
+    lcd.printStr(5, 20, buf);
+    lcd.display();
+}
+
+void DisplayEdit()
+{
+    if (stateSettings == 1)
+    {
+        snprintf(buf, 20, "%d%s", value, "%");
+        UpdatePot(value);
+        PlaySound(700, 100);
+        UpdatePot(volume);
+    }
+    else if (stateSettings == 2)
+    {
+        snprintf(buf, 20, "%d%s", value, "m");
+    }
+    else if (stateSettings == 3)
+    {
+        snprintf(buf, 20, "%d.%d", value / 100, value);
+    }
+    lcd.fillRect(45, 44, 50, 7, 0);
+    lcd.drawPixel(96, 47, 1); // TODO remove
+    lcd.display();
+    lcd.printStr(45, 44, buf);
+    lcd.display();
+}
+
+void Save()
+{
+    if (stateSettings == 1)
+    {
+        volume = value;
+        UpdatePot(volume);
+        EEPROM.write(1, volume);
+    }
+    else if (stateSettings == 2)
+    {
+        baro.SetAltitude(value);
+        // No need to save the qnh, it changes daily.
+    }
+    else if (stateSettings == 3)
+    {
+        baro.SetAlpha(value / 100.0f);
+        EEPROM.write(2, value);
+    }
+}
+
+void Edit(int16_t min, int16_t max, int16_t inc)
+{
+    while (IsButtonPressed(BUTTON_BACK) == false)
+    {
+        if (IsButtonPressed(BUTTON_UP) && value < max)
+        {
+            value += inc;
+            DisplayEdit();
+            Delay(200);
+        }
+        else if (IsButtonPressed(BUTTON_DOWN) && value > min)
+        {
+            value -= inc;
+            DisplayEdit();
+            Delay(200);
+        }
+        else if (IsButtonPressed(BUTTON_OK))
+        {
+            Save();
+            Delay(500);
+        }
+    }
+}
+
 void Settings()
 {
     stateSettings = 1;
@@ -359,10 +436,22 @@ void Settings()
             if (stateSettings == 1)
             {
                 value = volume;
-                DisplayVolume();
-                ChangeVolume();
+                DisplayEdit();
+                Edit(0, 100, 5);
             }
             else if (stateSettings == 2)
+            {
+                value = baro.GetX();
+                DisplayEdit();
+                Edit(-1000, 10000, 1);
+            }
+            else if (stateSettings == 3)
+            {
+                value = baro.GetAlpha() * 100.0f;
+                DisplayEdit();
+                Edit(0, 100, 1);
+            }
+            else if (stateSettings == 4)
             {
                 while (IsButtonPressed(BUTTON_BACK) == false)
                 {
@@ -375,56 +464,6 @@ void Settings()
             Delay(500);
         }
     }
-}
-
-void UpdateSettingsScreen()
-{
-    lcd.cls();
-    lcd.setFont(c64);
-    snprintf(buf, 20, "%s", textSettings[0]);
-    lcd.printStr(38, 5, buf);
-    lcd.drawLineHfast(0, 127, 15, 1);
-    snprintf(buf, 20, "%d. %s", stateSettings, textSettings[stateSettings]);
-    lcd.printStr(5, 20, buf);
-    lcd.display();
-}
-
-void ChangeVolume()
-{
-    while (IsButtonPressed(BUTTON_BACK) == false)
-    {
-        if (IsButtonPressed(BUTTON_UP) && value < 100)
-        {
-            value += 5;
-            DisplayVolume();
-            Delay(200);
-        }
-        else if (IsButtonPressed(BUTTON_DOWN) && value > 0)
-        {
-            value -= 5;
-            DisplayVolume();
-            Delay(200);
-        }
-        else if (IsButtonPressed(BUTTON_OK))
-        {
-            volume = value;
-            UpdatePot(volume);
-            EEPROM.write(6, volume);
-            Delay(500);
-        }
-    }
-}
-
-void DisplayVolume()
-{
-    lcd.fillRect(45, 44, 50, 7, 0);
-    lcd.display();
-    snprintf(buf, 20, "%s %d", "%", value);
-    lcd.printStr(45, 44, buf);
-    lcd.display();
-    UpdatePot(value);
-    PlaySound(700, 100);
-    UpdatePot(volume);
 }
 
 /*
