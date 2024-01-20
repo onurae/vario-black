@@ -57,13 +57,7 @@ bool Baro::Init()
         return false;
     }
     Calculate(); // Calculate pressure, temperature and altitude.
-
-    // Initial conditions for filter
-    xk1 = alt;
-    vk1 = 0;
-    xk = xk1;
-    vk = vk1;
-
+    InitFilter(alt); // Initial conditions for filter.
     return true;
 }
 
@@ -226,4 +220,18 @@ void Baro::ApplyFilter(float dt)
 
     xk1 = xk;
     vk1 = vk;
+}
+
+void Baro::InitFilter(float altitude)
+{
+    xk1 = altitude;
+    vk1 = 0;
+    xk = xk1;
+    vk = vk1;
+}
+
+void Baro::SetAltitude(float altitude)
+{
+    qnh = (pressure / (pow(((altitude / ((tsl + 273.15) / (-0.0065))) + 1), 1 / 0.1902632)));
+    InitFilter(altitude);
 }

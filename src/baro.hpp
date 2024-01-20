@@ -66,6 +66,10 @@ public:
     float GetX() { return xk; }
     float GetV() { return vk; }
     float GetT() { return temperature; }
+    float GetAlpha() { return alpha; }
+    void SetAlpha(float value) { alpha = value; };
+    void InitFilter(float altitude);
+    void SetAltitude(float altitude);
 };
 
 #endif /* BARO_HPP */
