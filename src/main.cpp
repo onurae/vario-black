@@ -27,7 +27,7 @@ void DetectLongPress();
 void UpdatePot(int16_t volume);
 
 // Sound
-int8_t volume = 0; // 0-100%
+int8_t volume = 100; // 0-100%
 unsigned long beepTime = 0;
 int beepDuration = 1000;
 int soundFreq = 700;
@@ -35,21 +35,19 @@ int soundFreqInc = 100; // Per 1 m/s
 float climbThr = 0.1;
 float sinkThr = -2.4;
 void UpdateSound();
-void PlaySound(unsigned long frequency, unsigned long length = 0,
-               uint8_t background = false, uint8_t tVolume = 10);
+void PlaySound(unsigned long frequency, unsigned long length = 0, uint8_t background = false, uint8_t tVolume = 10);
 
 // Screen
 char buf[20];
 #define BACKLIGHT_PIN PIN_A3
 ST7567_FB lcd(7, 8, 6); // dc, rst, cs.
-const int8_t fps = 2;   // 2Hz
+int8_t contrast = 31;
+const int8_t fps = 2; // 2Hz
 void UpdateMainScreen();
 
 // Settings
 int8_t stateSettings = 0;
-const char *textSettings[] = {"SETTINGS", "Volume", "Altitude",
-                              "Alpha", "Climb Threshold", "Sink Threshold",
-                              "Contrast", "About", "Reset"};
+const char *textSettings[] = {"SETTINGS", "Volume", "Altitude", "Alpha", "Climb Threshold", "Sink Threshold", "Contrast", "Reset", "About"};
 void Settings();
 int16_t value = 0;
 
@@ -92,11 +90,12 @@ void setup()
     pinMode(BACKLIGHT_PIN, OUTPUT);
     digitalWrite(BACKLIGHT_PIN, LOW);
     lcd.init();
-    lcd.setContrast(27);
+    lcd.setContrast(contrast);
     lcd.setRotation(4);
     lcd.cls();
     lcd.setFont(c64);
-    lcd.printStr(ALIGN_CENTER, 25, "vario-black");
+    snprintf(buf, 20, "vario-black");
+    lcd.printStr(25, 25, buf);
     lcd.display();
     Delay(1000);
 
@@ -105,23 +104,29 @@ void setup()
     {
         EEPROM.write(0, 0);  // eeprom
         EEPROM.write(1, 80); // volume %
-        EEPROM.write(2, 1);  // alpha*100
-        EEPROM.write(3, 2);  // climbthr*10
-        EEPROM.write(4, 30); // -1*sinkthr*10
-        EEPROM.write(5, 70); // soundfreq/10
-        EEPROM.write(6, 10); // soundfreqinc
-        lcd.printStr(ALIGN_CENTER, 40, "eeprom set!");
-        UpdatePot(EEPROM.read(1)); // pot.
+        EEPROM.write(2, 30); // alpha*100
+        EEPROM.write(3, 1);  // climbthr*10
+        EEPROM.write(4, 24); // -1*sinkthr*10
+        EEPROM.write(5, 31); // contrast
+        snprintf(buf, 20, "eeprom set!");
+        lcd.printStr(25, 40, buf);
+        lcd.display();
         Delay(5000);
     }
     volume = EEPROM.read(1);
+    UpdatePot(volume);
     baro.SetAlpha(EEPROM.read(2) / 100.0f);
+    climbThr = EEPROM.read(3) / 10.0f;
+    sinkThr = EEPROM.read(4) / -10.0f;
+    contrast = EEPROM.read(5);
+    lcd.setContrast(contrast);
 
     // Sensor [Pressure rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above]
     if (baro.Init() == false)
     {
         // Serial.println(F("sensor error"));
-        lcd.printStr(ALIGN_CENTER, 40, "sensor error!");
+        snprintf(buf, 20, "sensor error!");
+        lcd.printStr(25, 40, buf);
         lcd.display();
         LoopForever();
     }
@@ -203,7 +208,7 @@ void UpdateSound()
         }
         else if (int(vario * 10) < int(sinkThr * 10))
         {
-            PlaySound(360 + int(v * 20.0f), 0, true, 5); // Sink volume: 50% of the climb volume.
+            PlaySound(360 + int(v * 20.0f), 0, true, 5); // Sink volume: 50% of the climb volume. // TODO maybe %100, maybe smooth? vario instead v? oscilation?
         }
         else
         {
@@ -279,7 +284,7 @@ void UpdateMainScreen()
 
     // lcd.printStr(80, 10, buf);
     // lcd.drawRectD(0, 0, 128, 64, 1);
-    // lcd.drawRect(18, 20, 127 - 18 * 2, 63 - 20 * 2, 1);
+    // lcd.drawRect(18, 20, 128 - 18 * 2, 63 - 20 * 2, 1);
 
     lcd.display();
     // lcd.displayInvert(true);
@@ -296,7 +301,6 @@ void DetectLongPress()
             counterButton = 0;
             PlaySound(1000, 200);
             lcd.cls();
-            // turning off...? yes/no
             lcd.display();
             Delay(1000);
             pinMode(BUTTON_OK, INPUT);
@@ -343,23 +347,39 @@ void DisplayEdit()
 {
     if (stateSettings == 1)
     {
-        snprintf(buf, 20, "%d%s", value, "%");
+        snprintf(buf, 20, "%d%s", value, " %");
         UpdatePot(value);
-        PlaySound(700, 100);
+        PlaySound(700, 100, 0, value == 0 ? 0 : 10);
         UpdatePot(volume);
     }
     else if (stateSettings == 2)
     {
-        snprintf(buf, 20, "%d%s", value, "m");
+        snprintf(buf, 20, "%d%s", value, " m");
     }
     else if (stateSettings == 3)
     {
-        snprintf(buf, 20, "%d.%d", value / 100, value);
+        snprintf(buf, 20, "0.%d", value);
     }
-    lcd.fillRect(45, 44, 50, 7, 0);
-    lcd.drawPixel(96, 47, 1); // TODO remove
+    else if (stateSettings == 4)
+    {
+        snprintf(buf, 20, "%d.%d%s", value / 10, value - (value / 10) * 10, " m/s");
+    }
+    else if (stateSettings == 5)
+    {
+        snprintf(buf, 20, "-%d.%d%s", -value / 10, -value - (-value / 10) * 10, " m/s");
+    }
+    else if (stateSettings == 6)
+    {
+        lcd.setContrast(value);
+        snprintf(buf, 20, "%d", value - 31);
+    }
+    else if (stateSettings == 7)
+    {
+        value == 0 ? snprintf(buf, 20, "YES") : snprintf(buf, 20, "NO");
+    }
+    lcd.fillRect(7, 43, 113, 8, 0);
     lcd.display();
-    lcd.printStr(45, 44, buf);
+    lcd.printStr(ALIGN_CENTER, 43, buf);
     lcd.display();
 }
 
@@ -381,27 +401,83 @@ void Save()
         baro.SetAlpha(value / 100.0f);
         EEPROM.write(2, value);
     }
+    else if (stateSettings == 4)
+    {
+        climbThr = value / 10.0f;
+        EEPROM.write(3, climbThr * 10);
+    }
+    else if (stateSettings == 5)
+    {
+        sinkThr = value / 10.0f;
+        EEPROM.write(4, sinkThr * -10);
+    }
+    else if (stateSettings == 6)
+    {
+        contrast = value;
+        lcd.setContrast(contrast);
+        EEPROM.write(5, value);
+    }
+    else if (stateSettings == 7)
+    {
+        if (value == 0)
+        {
+            EEPROM.write(0, 255);
+            PlaySound(1000, 200);
+            lcd.cls();
+            lcd.display();
+            pinMode(BUTTON_OK, INPUT);
+            Delay(1000);
+        }
+    }
+    PlaySound(1000, 50);
+    Delay(50);
+    PlaySound(1000, 50);
+}
+
+void DisplayEditIcon()
+{
+    lcd.fillRect(3, 43, 7, 8, 0);
+    lcd.display();
+    lcd.printChar(3, 43, 132);
+    lcd.display();
+}
+
+void DisplaySaveIcon()
+{
+    lcd.fillRect(3, 43, 7, 8, 0);
+    lcd.display();
+    lcd.printChar(3, 42, 133);
+    lcd.display();
 }
 
 void Edit(int16_t min, int16_t max, int16_t inc)
 {
+    lcd.printChar(3, 32, 128);
+    lcd.printChar(3, 54, 129);
+    lcd.printChar(118, 32, 130);
+    lcd.printChar(118, 54, 131);
+    lcd.display();
+    Delay(500);
     while (IsButtonPressed(BUTTON_BACK) == false)
     {
         if (IsButtonPressed(BUTTON_UP) && value < max)
         {
             value += inc;
             DisplayEdit();
+            DisplayEditIcon();
             Delay(200);
         }
         else if (IsButtonPressed(BUTTON_DOWN) && value > min)
         {
             value -= inc;
             DisplayEdit();
+            DisplayEditIcon();
             Delay(200);
         }
         else if (IsButtonPressed(BUTTON_OK))
         {
             Save();
+            DisplaySaveIcon();
             Delay(500);
         }
     }
@@ -415,7 +491,6 @@ void Settings()
     Delay(100);
     PlaySound(1000, 100);
     Delay(500);
-
     while (IsButtonPressed(BUTTON_BACK) == false)
     {
         if (IsButtonPressed(BUTTON_UP) && stateSettings > 1)
@@ -449,9 +524,47 @@ void Settings()
             {
                 value = baro.GetAlpha() * 100.0f;
                 DisplayEdit();
-                Edit(0, 100, 1);
+                Edit(10, 50, 1);
             }
             else if (stateSettings == 4)
+            {
+                value = climbThr * 10;
+                DisplayEdit();
+                Edit(1, 5, 1);
+            }
+            else if (stateSettings == 5)
+            {
+                value = sinkThr * 10;
+                DisplayEdit();
+                Edit(-200, -10, 1);
+            }
+            else if (stateSettings == 6)
+            {
+                value = contrast;
+                DisplayEdit();
+                Edit(0, 63, 1);
+                lcd.setContrast(contrast);
+            }
+            else if (stateSettings == 7)
+            {
+                value = 1;
+                DisplayEdit();
+                Edit(0, 1, 1);
+            }
+            else if (stateSettings == 8)
+            {
+                while (IsButtonPressed(BUTTON_BACK) == false)
+                {
+                    snprintf(buf, 20, "github.com/onurae");
+                    lcd.printStr(5, 33, buf);
+                    snprintf(buf, 20, "Designed for METU");
+                    lcd.printStr(5, 43, buf);
+                    snprintf(buf, 20, "paraglider pilots.");
+                    lcd.printStr(5, 53, buf);
+                    lcd.display();
+                }
+            }
+            else if (stateSettings == 9)
             {
                 while (IsButtonPressed(BUTTON_BACK) == false)
                 {
