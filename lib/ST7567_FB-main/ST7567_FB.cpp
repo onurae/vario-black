@@ -215,7 +215,7 @@ void ST7567_FB::sleep(bool mode)
   } else initCmds();
 }
 // ----------------------------------------------------------------
-// 0..31
+// 0..63
 void ST7567_FB::setContrast(byte val)
 {
   CS_ACTIVE;
