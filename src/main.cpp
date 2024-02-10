@@ -47,7 +47,7 @@ void UpdateMainScreen();
 
 // Settings
 int8_t stateSettings = 0;
-const char *textSettings[] = {"SETTINGS", "Volume", "Altitude", "Alpha", "Climb Threshold", "Sink Threshold", "Contrast", "Reset", "About"};
+const char *textSettings[] = {"SETTINGS", "Volume", "Altitude", "Climb Threshold", "Sink Threshold", "Alpha", "Contrast", "Reset", "About"};
 void Settings();
 int16_t value = 0;
 
@@ -104,10 +104,10 @@ void setup()
     {
         EEPROM.write(0, 0);  // eeprom
         EEPROM.write(1, 80); // volume %
-        EEPROM.write(2, 30); // alpha*100
         EEPROM.write(3, 1);  // climbthr*10
         EEPROM.write(4, 24); // -1*sinkthr*10
-        EEPROM.write(5, 31); // contrast
+        EEPROM.write(5, 30); // alpha*100
+        EEPROM.write(6, 31); // contrast
         snprintf(buf, 20, "eeprom set!");
         lcd.printStr(25, 40, buf);
         lcd.display();
@@ -115,10 +115,10 @@ void setup()
     }
     volume = EEPROM.read(1);
     UpdatePot(volume);
-    baro.SetAlpha(EEPROM.read(2) / 100.0f);
     climbThr = EEPROM.read(3) / 10.0f;
     sinkThr = EEPROM.read(4) / -10.0f;
-    contrast = EEPROM.read(5);
+    baro.SetAlpha(EEPROM.read(5) / 100.0f);
+    contrast = EEPROM.read(6);
     lcd.setContrast(contrast);
 
     // Sensor [Pressure rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above]
@@ -358,15 +358,15 @@ void DisplayEdit()
     }
     else if (stateSettings == 3)
     {
-        snprintf(buf, 20, "0.%d", value);
+        snprintf(buf, 20, "%d.%d%s", value / 10, value - (value / 10) * 10, " m/s");
     }
     else if (stateSettings == 4)
     {
-        snprintf(buf, 20, "%d.%d%s", value / 10, value - (value / 10) * 10, " m/s");
+        snprintf(buf, 20, "-%d.%d%s", -value / 10, -value - (-value / 10) * 10, " m/s");
     }
     else if (stateSettings == 5)
     {
-        snprintf(buf, 20, "-%d.%d%s", -value / 10, -value - (-value / 10) * 10, " m/s");
+        snprintf(buf, 20, "0.%d", value);
     }
     else if (stateSettings == 6)
     {
@@ -398,24 +398,24 @@ void Save()
     }
     else if (stateSettings == 3)
     {
-        baro.SetAlpha(value / 100.0f);
-        EEPROM.write(2, value);
-    }
-    else if (stateSettings == 4)
-    {
         climbThr = value / 10.0f;
         EEPROM.write(3, climbThr * 10);
     }
-    else if (stateSettings == 5)
+    else if (stateSettings == 4)
     {
         sinkThr = value / 10.0f;
         EEPROM.write(4, sinkThr * -10);
+    }
+    else if (stateSettings == 5)
+    {
+        baro.SetAlpha(value / 100.0f);
+        EEPROM.write(5, value);
     }
     else if (stateSettings == 6)
     {
         contrast = value;
         lcd.setContrast(contrast);
-        EEPROM.write(5, value);
+        EEPROM.write(6, value);
     }
     else if (stateSettings == 7)
     {
@@ -499,7 +499,7 @@ void Settings()
             UpdateSettingsScreen();
             Delay(200);
         }
-        else if (IsButtonPressed(BUTTON_DOWN) && stateSettings < 11)
+        else if (IsButtonPressed(BUTTON_DOWN) && stateSettings < 9)
         {
             stateSettings++;
             UpdateSettingsScreen();
@@ -522,21 +522,21 @@ void Settings()
             }
             else if (stateSettings == 3)
             {
-                value = baro.GetAlpha() * 100.0f;
-                DisplayEdit();
-                Edit(10, 50, 1);
-            }
-            else if (stateSettings == 4)
-            {
                 value = climbThr * 10;
                 DisplayEdit();
                 Edit(1, 5, 1);
             }
-            else if (stateSettings == 5)
+            else if (stateSettings == 4)
             {
                 value = sinkThr * 10;
                 DisplayEdit();
                 Edit(-200, -10, 1);
+            }
+            else if (stateSettings == 5)
+            {
+                value = baro.GetAlpha() * 100.0f;
+                DisplayEdit();
+                Edit(10, 50, 1);
             }
             else if (stateSettings == 6)
             {
