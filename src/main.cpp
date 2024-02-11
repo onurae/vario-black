@@ -270,13 +270,13 @@ void UpdateMainScreen()
     lcd.printStr(106, 0, buf);
     lcd.drawLineHfastD(0, 127, 9, 1);
     snprintf(buf, 2, "m");
-    lcd.printStr(106, 28, buf);
+    lcd.printStr(106, 29, buf);
     snprintf(buf, 4, "m/s");
     lcd.printStr(106, 56, buf);
 
     lcd.setFont(Arial16x21);
     snprintf(buf, 6, "%d", int16_t(baro.GetX()));
-    lcd.printStr(40, 15, buf);
+    lcd.printStr(39, 15, buf);
     int16_t k = 1;
     if (baro.GetV() < 0)
     {
