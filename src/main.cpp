@@ -245,49 +245,48 @@ void UpdateMainScreen()
         return;
     }
     counterScreen = 0;
-
     lcd.cls();
-
     if (baro.CheckFailure() == true)
     {
-        // Serial.println(F("Sensor failure")); // TODO
-        // stateScreen = 3; // TODO
+        lcd.setFont(c64);
+        snprintf(buf, 20, "sensor error!");
+        lcd.printStr(20, 23, buf);
+        lcd.display();
+        return;
     }
 
-    // lcd.printStr(ALIGN_CENTER, 0, "hi ========== 845");
-    // char buf[6];
-    snprintf(buf, 6, "%d", (int16_t)baro.GetX() + 143);
-    lcd.setFont(Arial18x23);
-    // lcd.setFontMinWd(18);
-    lcd.printStr(20, 5, buf); // when 4 digits?
+    lcd.setFont(Icons21x21);
+    lcd.printChar(5, 15, 32);
+    lcd.printChar(5, 43, 33);
+    lcd.printChar(53, 0, 34);
+    lcd.printChar(91, 0, 35);
+
+    lcd.setFont(c64);
+    snprintf(buf, 6, "%d C'", int8_t(baro.GetT()));
+    lcd.printStr(5, 0, buf);
+    snprintf(buf, 4, "%d", volume);
+    lcd.printStr(65, 0, buf);
+    snprintf(buf, 4, "%d", batteryLevel);
+    lcd.printStr(106, 0, buf);
+    lcd.drawLineHfastD(0, 127, 9, 1);
+    snprintf(buf, 2, "m");
+    lcd.printStr(106, 28, buf);
+    snprintf(buf, 4, "m/s");
+    lcd.printStr(106, 56, buf);
+
+    lcd.setFont(Arial16x21);
+    snprintf(buf, 6, "%d", int16_t(baro.GetX()));
+    lcd.printStr(40, 15, buf);
     int16_t k = 1;
     if (baro.GetV() < 0)
     {
-        snprintf(buf, 6, "%s", "-");
-        lcd.printStr(10, 40, buf);
+        snprintf(buf, 2, "%s", "-");
+        lcd.printStr(36, 40, buf);
         k = -1;
     }
-    snprintf(buf, 6, "%d.%d ", int16_t(baro.GetV() * k), int16_t(baro.GetV() * 10 * k) % 10); // when -10.0?
-    lcd.printStr(20, 37, buf);
-
-    // lcd.setFont(c64);
-    // snprintf(buf, 6, "%dC", int8_t(baro.GetT())); // add deg.
-    // lcd.printStr(50, 0, buf);
-
-    // snprintf(buf, 6, "%d", batteryLevel);
-    // lcd.printStr(110, 0, buf);
-    // lcd.printStr(120, 0, "%");
-
-    // lcd.drawLineHfast(40, 120, 10, 1); // 30byte
-
-    // lcd.printStr(80, 0, "10%"); // sound
-
-    // lcd.printStr(80, 10, buf);
-    // lcd.drawRectD(0, 0, 128, 64, 1);
-    // lcd.drawRect(18, 20, 128 - 18 * 2, 63 - 20 * 2, 1);
-
+    snprintf(buf, 5, "%d.%d ", int16_t(baro.GetV() * k), int16_t(baro.GetV() * 10 * k) % 10);
+    lcd.printStr(50, 42, buf);
     lcd.display();
-    // lcd.displayInvert(true);
 }
 
 void DetectLongPress()
@@ -578,24 +577,3 @@ void Settings()
         }
     }
 }
-
-/*
-// Average vario, only used for gain in thermal function.
-int8_t arr[freq * 15] = {0}; // Max. 30 seconds average: (freq/2)*30
-int16_t vsIndex = 0;
-long vsSum = 0;
-float vsAverage = 0;
-int vsAverageTime = 10;
-void CalculateAverageVario(float vk)
-{
-    vsSum -= arr[vsIndex];
-    arr[vsIndex] = int8_t(vk * 10.0f); // [-12.8, 12.7]
-    vsSum += arr[vsIndex];
-    vsIndex += 1;
-    if (vsIndex >= int16_t(vsAverageTime * freq * 0.5f))
-    {
-        vsIndex = 0;
-    }
-    vsAverage = vsSum / 10.0f / (vsAverageTime * freq * 0.5f);
-}
-*/
