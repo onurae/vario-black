@@ -68,12 +68,10 @@ const int8_t period = 50; // [ms]
 unsigned long start;
 unsigned long end;
 int8_t elapsed;
+int8_t missed = 0;
 
 void setup()
 {
-    // Serial.begin(115200);
-    // Serial.println("vario-black");
-
     // Power
     PlaySound(1000, 200);
 
@@ -124,7 +122,6 @@ void setup()
     // Sensor [Pressure rate: (freq / 2). Max 50Hz when the main loop freq is 100Hz and above]
     if (baro.Init() == false)
     {
-        // Serial.println(F("sensor error"));
         snprintf(buf, 20, "sensor error!");
         lcd.printStr(25, 40, buf);
         lcd.display();
@@ -136,7 +133,17 @@ void setup()
     {
         UpdateBattery();
     }
-    // TODO show battery level...
+    if (batteryLevel == 0)
+    {
+        snprintf(buf, 20, "battery empty!");
+        lcd.printStr(20, 55, buf);
+        lcd.display();
+        LoopForever();
+    }
+    snprintf(buf, 20, "battery < %d hours", batteryLevel / 4); //TODO measure current.
+    lcd.printStr(5, 55, buf);
+    lcd.display();
+    Delay(3000);
 
     // Main loop
     start = millis();
@@ -152,7 +159,7 @@ void loop()
     }
     else
     {
-        // Serial.println(elapsed);
+        missed++;
     }
     start = millis();
 
@@ -262,7 +269,9 @@ void UpdateMainScreen()
     lcd.printChar(91, 0, 35);
 
     lcd.setFont(c64);
-    snprintf(buf, 6, "%d C'", int8_t(baro.GetT()));
+    //snprintf(buf, 4, "!%d", missed);
+    //lcd.printStr(5, 10, buf);
+    snprintf(buf, 6, "%d'C", int8_t(baro.GetT()));
     lcd.printStr(5, 0, buf);
     snprintf(buf, 4, "%d", volume);
     lcd.printStr(65, 0, buf);
@@ -307,13 +316,11 @@ void DetectLongPress()
     }
     else if (IsButtonPressed(BUTTON_UP))
     {
-        // digitalWrite(BACKLIGHT_PIN, LOW);
-        // DigitalPotWrite(100);
+        //digitalWrite(BACKLIGHT_PIN, LOW);
     }
     else if (IsButtonPressed(BUTTON_DOWN))
     {
-        // digitalWrite(BACKLIGHT_PIN, HIGH);
-        // DigitalPotWrite(250); // Max 250 for 10mA!
+        //digitalWrite(BACKLIGHT_PIN, HIGH);
     }
     else if (IsButtonPressed(BUTTON_OK))
     {
@@ -498,7 +505,7 @@ void Settings()
             UpdateSettingsScreen();
             Delay(200);
         }
-        else if (IsButtonPressed(BUTTON_DOWN) && stateSettings < 9)
+        else if (IsButtonPressed(BUTTON_DOWN) && stateSettings < 8)
         {
             stateSettings++;
             UpdateSettingsScreen();
@@ -560,15 +567,6 @@ void Settings()
                     lcd.printStr(5, 43, buf);
                     snprintf(buf, 20, "paraglider pilots.");
                     lcd.printStr(5, 53, buf);
-                    lcd.display();
-                }
-            }
-            else if (stateSettings == 9)
-            {
-                while (IsButtonPressed(BUTTON_BACK) == false)
-                {
-                    lcd.printStr(38, 40, "'()*+,-./:;<=>?");
-                    lcd.printStr(38, 50, "[]^_`{|}~");
                     lcd.display();
                 }
             }
