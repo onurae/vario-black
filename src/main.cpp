@@ -265,18 +265,18 @@ void UpdateMainScreen()
     lcd.setFont(Icons21x21);
     lcd.printChar(5, 15, 32);
     lcd.printChar(5, 43, 33);
-    lcd.printChar(53, 0, 34);
-    lcd.printChar(91, 0, 35);
+    lcd.printChar(51, 0, 34);
+    lcd.printChar(96, 0, 35);
 
     lcd.setFont(c64);
     //snprintf(buf, 4, "!%d", missed);
     //lcd.printStr(5, 10, buf);
     snprintf(buf, 6, "%d'C", int8_t(baro.GetT()));
-    lcd.printStr(5, 0, buf);
+    lcd.printStr(7, 0, buf);
     snprintf(buf, 4, "%d", volume);
-    lcd.printStr(65, 0, buf);
+    lcd.printStr(63, 0, buf);
     snprintf(buf, 4, "%d", batteryLevel);
-    lcd.printStr(106, 0, buf);
+    lcd.printStr(108, 0, buf);
     lcd.drawLineHfastD(0, 127, 9, 1);
     snprintf(buf, 2, "m");
     lcd.printStr(106, 29, buf);
