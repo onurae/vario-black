@@ -2,7 +2,7 @@
  *                                                                                         *
  *    Barometric Pressure Sensor (MS5611)                                                  *
  *                                                                                         *
- *    Copyright (c) 2023 Onur AKIN <https://github.com/onurae>                             *
+ *    Copyright (c) 2024 Onur AKIN <https://github.com/onurae>                             *
  *    Licensed under the MIT License.                                                      *
  *                                                                                         *
  ******************************************************************************************/

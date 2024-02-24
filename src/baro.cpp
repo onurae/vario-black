@@ -2,7 +2,7 @@
  *                                                                                         *
  *    Barometric Pressure Sensor (MS5611)                                                  *
  *                                                                                         *
- *    Copyright (c) 2023 Onur AKIN <https://github.com/onurae>                             *
+ *    Copyright (c) 2024 Onur AKIN <https://github.com/onurae>                             *
  *    Licensed under the MIT License.                                                      *
  *                                                                                         *
  ******************************************************************************************/
@@ -56,7 +56,7 @@ bool Baro::Init()
     {
         return false;
     }
-    Calculate(); // Calculate pressure, temperature and altitude.
+    Calculate();     // Calculate pressure, temperature and altitude.
     InitFilter(alt); // Initial conditions for filter.
     return true;
 }
@@ -220,6 +220,12 @@ void Baro::ApplyFilter(float dt)
 
     xk1 = xk;
     vk1 = vk;
+    return;
+
+    // For vario sine wave test.
+    static float t = 0;
+    t += dt;
+    vk = 5.0f * sin(0.025f * t);
 }
 
 void Baro::InitFilter(float altitude)

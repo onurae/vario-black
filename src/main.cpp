@@ -2,7 +2,7 @@
  *                                                                                         *
  *    Vario-Black                                                                          *
  *                                                                                         *
- *    Copyright (c) 2023 Onur AKIN <https://github.com/onurae>                             *
+ *    Copyright (c) 2024 Onur AKIN <https://github.com/onurae>                             *
  *    Licensed under the MIT License.                                                      *
  *                                                                                         *
  ******************************************************************************************/
@@ -61,6 +61,7 @@ void UpdateSensor();
 int batteryLevel = 0; // [%]
 float vfp = 1.25f;
 const float gamma = 0.002f;
+float GetBatteryVoltage();
 void UpdateBattery();
 
 // Main loop
@@ -129,9 +130,11 @@ void setup()
     }
 
     // Battery
-    for (int i = 0; i < 5000; i++) // ~500ms.
+    vfp = GetBatteryVoltage();
+    for (int i = 0; i < 500; i++)
     {
         UpdateBattery();
+        Delay(1);
     }
     if (batteryLevel == 0)
     {
@@ -140,10 +143,6 @@ void setup()
         lcd.display();
         LoopForever();
     }
-    snprintf(buf, 20, "battery < %d hours", batteryLevel / 4); //TODO measure current.
-    lcd.printStr(5, 55, buf);
-    lcd.display();
-    Delay(3000);
 
     // Main loop
     start = millis();
@@ -202,34 +201,37 @@ void UpdateSound()
     if (int(millis() - beepTime) >= 2 * beepDuration)
     {
         float vario = baro.GetV();
-        float v = int(vario * 10) / 10.0f;
+        float v = int(vario * 10.0f) / 10.0f;
         beepDuration = 50;
-        if (int(vario * 10) >= int(climbThr * 10))
+        if (int(vario * 10.0f) >= int(climbThr * 10.0f))
         {
             if (int(vario * 10) < 37)
             {
                 beepDuration = int(((-0.0002f * v * v * v * v + 0.0003f * v * v * v + 0.0194f * v * v - 0.145f * v + 0.392f) * 1000.0f) / 50.0f) * 50;
-                beepTime = millis();
             }
             PlaySound(soundFreq + soundFreqInc * (v - 0.1f), beepDuration, true);
         }
         else if (int(vario * 10) < int(sinkThr * 10))
         {
-            PlaySound(360 + int(v * 20.0f), 0, true, 5); // Sink volume: 50% of the climb volume. // TODO maybe %100, maybe smooth? vario instead v? oscilation?
+            PlaySound(360 + int(v * 20.0f), 0, true, 5); // Sink volume: 50% of the climb volume.
         }
         else
         {
             PlaySound(0);
         }
+        beepTime = millis();
     }
+}
+
+float GetBatteryVoltage()
+{
+    return (analogRead(PIN_BAT) + 0.5f) * (3.3f / 1024.0f) * 0.5f; // 1 battery.
 }
 
 void UpdateBattery()
 {
-    int value = analogRead(PIN_BAT);
-    float voltage = value * (3.3f / 1024.0f) * 0.5f; // 1 battery.
     // Filtered voltage
-    float vf = (1.0f - gamma) * vfp + gamma * voltage;
+    float vf = (1.0f - gamma) * vfp + gamma * GetBatteryVoltage();
     vfp = vf;
     // Assume linear discharge curve.
     batteryLevel = (100.0f * (vf - 1.0f) / (1.5f - 1.0f)); // Max: 1.5V, Min: 1.0V
@@ -563,10 +565,8 @@ void Settings()
                 {
                     snprintf(buf, 20, "github.com/onurae");
                     lcd.printStr(5, 33, buf);
-                    snprintf(buf, 20, "Designed for METU");
-                    lcd.printStr(5, 43, buf);
-                    snprintf(buf, 20, "paraglider pilots.");
-                    lcd.printStr(5, 53, buf);
+                    snprintf(buf, 20, "2024 v1.0");
+                    lcd.printStr(25, 43, buf);
                     lcd.display();
                 }
             }
