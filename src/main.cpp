@@ -60,7 +60,7 @@ void UpdateSensor();
 #define PIN_BAT PIN_A2
 int batteryLevel = 0; // [%]
 float vfp = 1.25f;
-const float gamma = 0.002f;
+const float gamma = 0.01f;
 float GetBatteryVoltage();
 void UpdateBattery();
 
@@ -106,7 +106,7 @@ void setup()
         EEPROM.write(3, 1);  // climbthr*10
         EEPROM.write(4, 24); // -1*sinkthr*10
         EEPROM.write(5, 30); // alpha*100
-        EEPROM.write(6, 31); // contrast
+        EEPROM.write(6, 28); // contrast
         snprintf(buf, 20, "eeprom set!");
         lcd.printStr(25, 40, buf);
         lcd.display();
