@@ -564,9 +564,9 @@ void Settings()
                 while (IsButtonPressed(BUTTON_BACK) == false)
                 {
                     snprintf(buf, 20, "github.com/onurae");
-                    lcd.printStr(5, 33, buf);
+                    lcd.printStr(5, 36, buf);
                     snprintf(buf, 20, "2024 v1.0");
-                    lcd.printStr(25, 43, buf);
+                    lcd.printStr(5, 48, buf);
                     lcd.display();
                 }
             }
